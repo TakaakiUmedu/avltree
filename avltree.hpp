@@ -84,8 +84,8 @@ namespace avltree{
 			using with_index    = std::conditional_t<tree_spec_has(S, tree_spec::with_index), std::true_type, std::false_type>;
 			using with_value    = std::negation<std::is_same<V, empty>>;
 			
-			using use_ref_k = std::bool_constant<(tree_spec_has(S, tree_spec::pass_key_by_ref) || (!tree_spec_has(S, tree_spec::pass_key_by_val) && sizeof(std::tuple<K>) > sizeof(nullptr_t)))>;
-			using use_ref_v = std::bool_constant<(tree_spec_has(S, tree_spec::pass_value_by_ref) || (!tree_spec_has(S, tree_spec::pass_value_by_val) && sizeof(std::tuple<V>) > sizeof(nullptr_t)))>;
+			using use_ref_k = std::bool_constant<(tree_spec_has(S, tree_spec::pass_key_by_ref) || (!tree_spec_has(S, tree_spec::pass_key_by_val) && sizeof(std::tuple<K>) > sizeof(std::nullptr_t)))>;
+			using use_ref_v = std::bool_constant<(tree_spec_has(S, tree_spec::pass_value_by_ref) || (!tree_spec_has(S, tree_spec::pass_value_by_val) && sizeof(std::tuple<V>) > sizeof(std::nullptr_t)))>;
 			
 			using KR = std::conditional_t<use_ref_k::value, const K&, const K>;
 			using VR = std::conditional_t<use_ref_v::value, const V&, const V>;
@@ -211,7 +211,7 @@ namespace avltree{
 				inline node_view_base0(N&& _n): n(std::move(_n)){}
 			public:
 				inline operator bool() const { return n != nullptr; }
-				inline bool operator==(nullptr_t n) const { return !*this; }
+				inline bool operator==(std::nullptr_t n) const { return !*this; }
 				inline const data_type& operator*() const& { return n->data; }
 				inline const data_type operator*() && { return std::move(n->data); }
 				inline const data_type* const operator->() const& { return &n->data; }
@@ -242,13 +242,13 @@ namespace avltree{
 			public:
 				inline explicit node_view(const node* n_): node_view_base2<const node*>(n_){}
 				inline explicit node_view(const node_uptr& n_): node_view_base2<const node*>(n_.get()){};
-				inline friend bool operator==(nullptr_t p, const node_view& n) { return !n; }
+				inline friend bool operator==(std::nullptr_t p, const node_view& n) { return !n; }
 			};
 			
 			class node_uptr_view: public node_view_base2<node_uptr>{
 			public:
 				inline explicit node_uptr_view(node_uptr&& n_): node_view_base2<node_uptr>(std::move(n_)){}
-				inline friend bool operator==(nullptr_t p, const node_uptr_view& n) { return !n; }
+				inline friend bool operator==(std::nullptr_t p, const node_uptr_view& n) { return !n; }
 			};
 			
 		private:
@@ -311,8 +311,8 @@ namespace avltree{
 						}
 					}
 				}
-				inline bool operator==(nullptr_t _) const{ return cur() == nullptr; }
-				inline bool operator!=(nullptr_t _) const{ return cur() != nullptr; }
+				inline bool operator==(std::nullptr_t _) const{ return cur() == nullptr; }
+				inline bool operator!=(std::nullptr_t _) const{ return cur() != nullptr; }
 				inline iterator_base& operator++(){ _forward<true>(); return *this;}
 				inline iterator_base& operator--(){ _forward<false>(); return *this; }
 				inline iterator_base operator++(int){ auto i = *this; ++*this; return i; }
@@ -740,8 +740,8 @@ namespace avltree{
 				
 				inline iterator begin() const{ return iterator(this->stack.size(), this->root.get()); }
 				inline reverse_iterator rbegin() const{ return reverse_iterator(this->stack.size(), this->root.get()); }
-				inline nullptr_t end() const{ return nullptr; }
-				inline nullptr_t rend() const{ return end(); }
+				inline std::nullptr_t end() const{ return nullptr; }
+				inline std::nullptr_t rend() const{ return end(); }
 				
 #ifdef AVLTREE_DEBUG_CLASS
 				friend class AVLTREE_DEBUG_CLASS;
