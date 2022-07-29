@@ -214,7 +214,7 @@ namespace avltree{
 				inline bool operator==(std::nullptr_t n) const { return !*this; }
 				inline const data_type& operator*() const& { return n->data; }
 				inline const data_type operator*() && { return std::move(n->data); }
-				inline const data_type* const operator->() const& { return &n->data; }
+				inline data_type const* operator->() const& { return &n->data; }
 			};
 			
 			template<typename N> struct node_view_with_count: public node_view_base0<N>{
@@ -458,8 +458,8 @@ namespace avltree{
 			};
 			
 		public:
-			using iterator         = typename avltree<K, V, S>::iterator_base<true>;
-			using reverse_iterator = typename avltree<K, V, S>::iterator_base<false>;
+			using iterator         = avltree<K, V, S>::iterator_base<true>;
+			using reverse_iterator = avltree<K, V, S>::iterator_base<false>;
 		private:
 			class tree_base_with_index : public tree_base0{
 			protected:
@@ -868,7 +868,7 @@ namespace avltree{
 		friend class AVLTREE_DEBUG_CLASS;
 		using K_ = K;
 		using V_ = V;
-		inline static const tree_spec S_ = S;
+		inline static const avltree::tree_spec S_ = S;
 #endif
 		
 		using base           = typename avltree_base::avltree<K, V, S>;
@@ -884,7 +884,7 @@ namespace avltree{
 	public:
 		using key_type      = K;
 		using value_type    = V;
-		inline static const tree_spec tree_spec = S;
+		inline static const avltree::tree_spec tree_spec = S;
 		using with_index    = typename base::with_index;
 		using with_depth    = typename base::with_depth;
 		using with_value    = typename base::with_value;
@@ -922,7 +922,7 @@ namespace avltree{
 		using node_view      = typename base::node_view;
 		using node_uptr_view = typename base::node_uptr_view;
 		set(): super(){}
-		template<typename V_> const bool insert(V_&& v){
+		template<typename V_> bool insert(V_&& v){
 			return this->_insert(std::forward<V_>(v));
 		}
 	};
