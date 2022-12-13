@@ -1182,10 +1182,10 @@ namespace avltree{
 	};
 	
 	template<typename V, tree_spec S = tree_spec::simple, typename U = std::tuple<>> class set: public avltree_base::avltree<V, avltree_base::empty, S, U>::tree_base{
-#ifdef AVLTREE_DEBUG_CLASS
-		friend class AVLTREE_DEBUG_CLASS;
 		using K_ = V;
 		using V_ = avltree_base::empty;
+#ifdef AVLTREE_DEBUG_CLASS
+		friend class AVLTREE_DEBUG_CLASS;
 		inline static const tree_spec S_ = S;
 #endif
 		using base  = typename avltree_base::avltree<V, avltree_base::empty, S, U>;
@@ -1208,10 +1208,10 @@ namespace avltree{
 	};
 	
 	template<typename V, tree_spec S = tree_spec::simple, typename U = std::tuple<>> class multiset: public avltree_base::avltree<V, avltree_base::empty, S, U>::multiset_base{
-#ifdef AVLTREE_DEBUG_CLASS
-		friend class AVLTREE_DEBUG_CLASS;
 		using K_ = V;
 		using V_ = avltree_base::empty;
+#ifdef AVLTREE_DEBUG_CLASS
+		friend class AVLTREE_DEBUG_CLASS;
 		inline static const tree_spec S_ = S;
 #endif
 		using base  = typename avltree_base::avltree<V, avltree_base::empty, S, U>;

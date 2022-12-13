@@ -3,8 +3,8 @@
 #include <vector>
 #include <random>
 
-class checker;
-#define AVLTREE_DEBUG_CLASS ::checker
+//class checker;
+//#define AVLTREE_DEBUG_CLASS ::checker
 
 #include "../avltree.hpp"
 
