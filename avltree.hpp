@@ -20,14 +20,90 @@ namespace avltree{
 	inline constexpr tree_spec operator|(const tree_spec v1, const tree_spec v2){ return static_cast<tree_spec>(static_cast<int>(v1) | static_cast<int>(v2)); }
 	inline constexpr bool tree_spec_has(const tree_spec v1, const tree_spec v2){ return (static_cast<int>(v1) & static_cast<int>(v2)) != 0; }
 	
-	template<typename K, typename V, tree_spec S> class map;
-	template<typename V, tree_spec S> class multiset;
-	
 	namespace avltree_base{
 		class empty{
 			empty() = delete;
 		};
+		template<typename K, typename V, tree_spec S, typename U = std::tuple<>> class avltree;
+	}
+	template<typename K, typename V, tree_spec S, typename U> class map;
+	template<typename V, tree_spec S, typename U> class multiset;
+	
+	namespace summary{
+		template<typename T> inline T pass(const T& d){ return d; }
+		template<typename D, typename T> inline T get_key(const D& d){ return d.first; }
+		template<typename D, typename T> inline T get_value(const D& d){ return d.second; }
 		
+		template<typename T> inline T add(const T& a, const T& b){ return a + b; }
+		template<typename T> inline T mul(const T& a, const T& b){ return a * b; }
+		template<typename T> inline T max(const T& a, const T& b){ return std::max(a, b); }
+		template<typename T> inline T min(const T& a, const T& b){ return std::min(a, b); }
+		
+		template<typename T> inline T one(){ return 1; }
+		template<typename T> inline T zero(){ return 0; }
+		template<typename T> inline T min_value(){ return std::numeric_limits<T>::min(); }
+		template<typename T> inline T max_value(){ return std::numeric_limits<T>::max(); }
+
+		template<typename U, typename T> using tuple_append = decltype(std::tuple_cat(std::declval<U>(), std::make_tuple(std::declval<T>())));
+		template<typename U, size_t I> struct summarizer_tuple_converter{
+			using tuple_type = tuple_append<typename summarizer_tuple_converter<U, I - 1>::tuple_type, typename std::tuple_element_t<I - 1, U>::type>;
+		};
+		template<typename U> struct summarizer_tuple_converter<U, 0>{
+			using tuple_type = std::tuple<>;
+		};
+		
+		template<typename K, typename V, tree_spec S, typename T, T summarize(const T& a, const T& b), T identity(), T get(const typename avltree_base::avltree<K, V, S>::data_type&) = pass<T>> struct summarizer{
+			using data_type = typename avltree_base::avltree<K, V, S>::data_type;
+			using type = T;
+			inline static T get_(const data_type& d)          { return get(d); }
+			inline static T summarize_(const T& a, const T& b){ return summarize(a, b); }
+			inline static T identity_()                       { return identity(); }
+			inline static void accumulate_(T& a, const T& b)  { a = summarize(a, b); }
+		};
+		
+		template<typename K, typename V, tree_spec S, typename U> struct summarizer_combined{
+			using data_type = typename avltree_base::avltree<K, V, S>::data_type;
+			using type = typename summarizer_tuple_converter<U, std::tuple_size_v<U>>::tuple_type;
+		private:
+			template<size_t I> static inline auto get__(const data_type& d){
+				const auto t = std::make_tuple(std::tuple_element_t<I, U>::get_(d));
+				if constexpr(I + 1 < std::tuple_size_v<U>){
+					return std::tuple_cat(t, get__<I + 1>(d));
+				}else{
+					return t;
+				}
+			}
+			template<size_t I> static inline auto summarize__(const type& a, const type& b){
+				const auto t = std::make_tuple(std::tuple_element_t<I, U>::summarize_(std::get<I>(a), std::get<I>(b)));
+				if constexpr(I + 1 < std::tuple_size_v<U>){
+					return std::tuple_cat(t, summarize__<I + 1>(a, b));
+				}else{
+					return t;
+				}
+			}
+			template<size_t I> static inline auto identity__(){
+				const auto t = std::make_tuple(std::tuple_element_t<I, U>::identity_());
+				if constexpr(I + 1 < std::tuple_size_v<U>){
+					return std::tuple_cat(t, identity__<I + 1>());
+				}else{
+					return t;
+				}
+			}
+		public:
+			static inline type get_(const data_type& d){ return get__<0>(d); }
+			static inline type summerize_(const type& a, const type& b){ return summarize__<0>(a, b); }
+			static inline type identity_(){ return identity__<0>(); }
+			static inline void accumulate_(type& a, const type& b){ a = summarize__<0>(a, b); }
+		};
+
+		template<typename K, typename V, tree_spec S, typename U> using tuple_to_summarizer = 
+			std::conditional_t<std::tuple_size_v<U> == 0, avltree_base::empty, 
+			std::conditional_t<std::tuple_size_v<U> == 1, std::tuple_element_t<0, tuple_append<U, int>>, // to avoid error caused by std::tuple_element<0, tuple<>>
+					summarizer_combined<K, V, S, U>>>;
+	}
+//	template<typename K, typename V, tree_spec S> class summarizer;
+	
+	namespace avltree_base{
 		template<typename I, typename O, typename T, T F(O)> class iterator_wrapper{
 			I i;
 		public:
@@ -69,9 +145,10 @@ namespace avltree{
 		template <typename T> static std::string to_string(const T& v){
 			return std::to_string(v);
 		}
-	
-		template<typename K, typename V, tree_spec S> class avltree{
-			friend class ::avltree::multiset<K, S>;
+		
+
+		template<typename K, typename V, tree_spec S, typename U> class avltree{
+			friend class ::avltree::multiset<K, S, U>;
 #ifdef AVLTREE_DEBUG_CLASS
 				friend class AVLTREE_DEBUG_CLASS;
 #endif
@@ -82,6 +159,7 @@ namespace avltree{
 		public:
 			using with_depth    = std::conditional_t<tree_spec_has(S, tree_spec::with_depth), std::true_type, std::false_type>;
 			using with_index    = std::conditional_t<tree_spec_has(S, tree_spec::with_index), std::true_type, std::false_type>;
+			using with_summary  = std::negation<std::is_same<U, std::tuple<>>>;
 			using with_value    = std::negation<std::is_same<V, empty>>;
 			
 			using use_ref_k = std::bool_constant<(tree_spec_has(S, tree_spec::pass_key_by_ref) || (!tree_spec_has(S, tree_spec::pass_key_by_val) && sizeof(std::tuple<K>) > sizeof(std::nullptr_t)))>;
@@ -91,10 +169,12 @@ namespace avltree{
 			using VR = std::conditional_t<use_ref_v::value, const V&, const V>;
 			
 			using data_type = std::conditional_t<with_value::value, std::pair<K, V>, K>;
+
 		private:
 			class node_with_value;
 			class node_without_value;
 			using node = std::conditional_t<with_value::value, node_with_value, node_without_value>;
+//			class node;
 			using node_uptr = std::unique_ptr<node>;
 		private:
 			static std::string node_to_string(const node& node){
@@ -147,28 +227,28 @@ namespace avltree{
 				}
 			}
 			
+			/*
+				NODE BASE : node_base0
+			*/
+			
 			struct node_base0{
 				std::unique_ptr<node> l, r;
 			protected:
 				inline node_base0() : l(), r() {}
 			};
 			
-			struct node_with_count : public node_base0{
-				size_t c;
-			protected:
-				inline node_with_count() : node_base0(), c(1) {}
-			};
+			/*
+				WITH BALANCE or DEPTH : node_base1
+			*/
 			
-			using node_base1 = std::conditional_t<with_index::value, node_with_count, node_base0>;
-			
-			struct node_with_balance: public node_base1{
+			struct node_with_balance: public node_base0{
 				int b;
 				inline int balance() const { return b; }
 			protected:
-				inline node_with_balance(): node_base1(), b(0) {}
+				inline node_with_balance(): node_base0(), b(0) {}
 			};
 			
-			struct node_with_depth: public node_base1{
+			struct node_with_depth: public node_base0{
 				int h;
 				inline int depth_l() const { return this->l ? this->l->h : 0; }
 				inline int depth_r() const { return this->r ? this->r->h : 0; }
@@ -177,31 +257,90 @@ namespace avltree{
 				}
 				inline int balance() const { return depth_l() - depth_r(); }
 			protected:
-				inline node_with_depth(): node_base1(), h(1) {}
+				inline node_with_depth(): node_base0(), h(1) {}
 			};
 			
-			using node_with_balance_or_depth = std::conditional_t<with_depth::value, node_with_depth, node_with_balance>;
+			using node_base1 = std::conditional_t<with_depth::value, node_with_depth, node_with_balance>;
 			
-			struct node_with_value : public node_with_balance_or_depth{
+			/*
+				WITH COUNT(INDEX) or not : node_base2
+			*/
+			
+			struct node_with_count : public node_base1{
+				size_t c;
+			protected:
+				inline node_with_count() : node_base1(), c(1) {}
+			public:
+				inline void update_count(){
+					const auto cl = this->l ? this->l->c : 0;
+					const auto cr = this->r ? this->r->c : 0;
+					c = cl + cr + 1;
+				}
+			};
+			
+			using node_base2 = std::conditional_t<with_index::value, node_with_count, node_base1>;
+			
+			/*
+				WITH VALUE or not : node_base3
+			*/
+			
+			struct node_base_with_value : public node_base2{
 				data_type data;
 				inline KR key() const { return data.first; }
 				inline K& key(){ return data.first; }
 				inline VR value() const{ return data.second; }
 				inline V& value(){ return data.second; }
-				inline void print() const{ print_node(*this, true, "", true); }
-				inline node_with_value(const K& k, const V&  v): node_with_balance_or_depth(), data(k, v) {}
-				inline node_with_value(const K& k, V&& v): node_with_balance_or_depth(), data(k, std::move(v)) {}
-				inline node_with_value(K&& k, const V&  v): node_with_balance_or_depth(), data(std::move(k), v) {}
-				inline node_with_value(K&& k, V&& v): node_with_balance_or_depth(), data(std::move(k), std::move(v)) {}
+				inline node_base_with_value(data_type&& data_): data(std::move(data_)){}
 			};
-			
-			struct node_without_value : public node_with_balance_or_depth{
+			struct node_base_without_value : public node_base2{
 				data_type data;
 				inline KR key() const { return data; }
 				inline K& key(){ return data; }
+				inline node_base_without_value(data_type&& data_): data(std::move(data_)){}
+			};
+			
+			using node_base3 = std::conditional_t<with_value::value, node_base_with_value, node_base_without_value>;
+			
+			/*
+				WITH SUMMARY or not : node_base4
+			*/
+			
+			using summarizer = summary::tuple_to_summarizer<K, V, S, U>;
+			
+			struct node_with_summary : public node_base3{
+				typename summarizer::type s;
+			protected:
+				node_with_summary(data_type&& data_): node_base3(std::move(data_)), s(summarizer::identity_())/*, k_min(nullptr), k_max(nullptr)*/{ update_summary(); }
+			public:
+				inline void update_summary(){
+					s = summarizer::get_(this->data);
+					if(this->l){
+						summarizer::accumulate_(s, this->l->s);
+					}
+					if(this->r){
+						summarizer::accumulate_(s, this->r->s);
+					}
+				}
+			};
+			
+			using node_base4 = std::conditional_t<with_summary::value, node_with_summary, node_base3>;
+			
+			/*
+				WITH VALUE or not
+			*/
+			
+			struct node_with_value: node_base4{
+				inline node_with_value(const K& k, const V&  v): node_base4(data_type(k, v)){}
+				inline node_with_value(const K& k, V&& v):       node_base4(data_type(k, std::move(v))){}
+				inline node_with_value(K&& k, const V&  v):      node_base4(data_type(std::move(k), v)){}
+				inline node_with_value(K&& k, V&& v):            node_base4(data_type(std::move(k), std::move(v))){}
 				inline void print() const{ print_node(*this, true, "", true); }
-				inline node_without_value(const K& k): node_with_balance_or_depth(), data(k) {}
-				inline node_without_value(K&& k): node_with_balance_or_depth(), data(std::move(k)) {}
+			};
+			
+			struct node_without_value: node_base4{
+				inline node_without_value(const K& k): node_base4(data_type(k)){}
+				inline node_without_value(K&& k):      node_base4(data_type(std::move(k))){}
+				inline void print() const{ print_node(*this, true, "", true); }
 			};
 			
 			template<typename N> struct node_view_base0{
@@ -458,8 +597,8 @@ namespace avltree{
 			};
 			
 		public:
-			using iterator         = avltree<K, V, S>::iterator_base<true>;
-			using reverse_iterator = avltree<K, V, S>::iterator_base<false>;
+			using iterator         = avltree<K, V, S, U>::iterator_base<true>;
+			using reverse_iterator = avltree<K, V, S, U>::iterator_base<false>;
 		private:
 			class tree_base_with_index : public tree_base0{
 			protected:
@@ -511,7 +650,7 @@ namespace avltree{
 
 		public:
 			
-			class tree_base : public tree_base1{
+			class tree_base2 : public tree_base1{
 				template<node_uptr& L(node&), node_uptr& R(node&), int D> inline void _rotate(node_uptr& p1){
 					node_uptr& p2 = L(*p1);
 					node_uptr& p3 = R(*p2);
@@ -541,14 +680,14 @@ namespace avltree{
 							}
 						}
 						if constexpr(with_index::value){
-							const auto c1 = p1->c;
-							const auto c2 = p2 ? p2->c : 0;
-							const auto c3 = p3 ? p3->c : 0;
-							const auto c4 = p4->c;
-							const auto c5 = p5->c;
-							p1->c = c5;
-							p4->c = c4 - c1 + c3;
-							p5->c = c5 - c4 + c2;
+							p4->update_count();
+							p5->update_count();
+							p1->update_count();
+						}
+						if constexpr(with_summary::value){
+							p4->update_summary();
+							p5->update_summary();
+							p1->update_summary();
 						}
 					}else{
 						swap(p1, p2);
@@ -565,11 +704,12 @@ namespace avltree{
 							}
 						}
 						if constexpr(with_index::value){
-							const auto c1 = p1->c;
-							const auto c2 = p2 ? p2->c : 0;
-							const auto c3 = p3->c;
-							p1->c = c3;
-							p3->c = c3 - c1 + c2;
+							p3->update_count();
+							p1->update_count();
+						}
+						if constexpr(with_summary::value){
+							p3->update_summary();
+							p1->update_summary();
 						}
 					}
 				}
@@ -592,6 +732,13 @@ namespace avltree{
 					auto [new_node, height] = this->_find(tree_base0::_make_branch_eq(k));
 					if(new_node){
 						new_node->value() = std::forward<V_>(v);
+						if constexpr(with_summary::value){
+							new_node->update_summary();
+							while(height != 0){
+								height --;
+								(*this->stack[height])->update_summary();
+							}
+						}
 						return false;
 					}
 					new_node = std::make_unique<node>(std::forward<K_>(k), std::forward<V_>(v));
@@ -657,6 +804,9 @@ namespace avltree{
 						if constexpr(with_depth::value){
 							parent.reset_depth();
 						}else{
+							if constexpr(with_summary::value){
+								parent.update_summary();
+							}
 							if(&parent.l == child){
 								parent.b += D;
 							}else{
@@ -699,7 +849,7 @@ namespace avltree{
 							}
 						}
 					}else{
-						if constexpr(with_depth::value || with_index::value){
+						if constexpr(with_depth::value || with_index::value || with_summary::value){
 							while(height > 0){
 								height --;
 								node_uptr* parent_ptr = this->stack[height];
@@ -710,13 +860,16 @@ namespace avltree{
 								if constexpr(with_depth::value){
 									parent.reset_depth();
 								}
+								if constexpr(with_summary::value){
+									parent.update_summary();
+								}
 								child = parent_ptr;
 							}
 						}
 					}
 				}
 				
-				tree_base() : tree_base1(){};
+				tree_base2() : tree_base1(){};
 			public:
 				node_uptr_view remove(KR k){ return node_uptr_view(_pop(tree_base0::_make_branch_eq(k))); }
 				node_uptr_view pop_first() { return node_uptr_view(_pop(tree_base0::_make_branch_l())); }
@@ -747,6 +900,121 @@ namespace avltree{
 				friend class AVLTREE_DEBUG_CLASS;
 #endif
 			};
+			
+			class tree_base_with_summary: public tree_base2{
+			private:
+				typename summarizer::type summarize_(const node& cur, KR l, KR r){
+					typename summarizer::type summary(summarizer::identity_());
+					if(cur.l && l <= cur.key()){
+						if(r >= cur.key()){
+							summarizer::accumulate_(summary, summarize_l_(*cur.l, l));
+						}else{
+							summarizer::accumulate_(summary, summarize_(*cur.l, l, r));
+						}
+					}
+					if(l <= cur.key() && r >= cur.key()){
+						summarizer::accumulate_(summary, summarizer::get_(cur.data));
+					}
+					if(cur.r && r >= cur.key()){
+						if(l <= cur.key()){
+							summarizer::accumulate_(summary, summarize_r_(*cur.r, r));
+						}else{
+							summarizer::accumulate_(summary, summarize_(*cur.r, l, r));
+						}
+					}
+					return summary;
+				}
+				typename summarizer::type summarize_l_(const node& cur, KR l){
+					if(l > cur.key()){
+						if(cur.r){
+							return summarize_l_(*cur.r, l);
+						}else{
+							return summarizer::identity_();
+						}
+					}else{
+						typename summarizer::type summary(summarizer::get_(cur.data));
+						if(cur.l){
+							summarizer::accumulate_(summary, summarize_l_(*cur.l, l));
+						}
+						if(cur.r){
+							summarizer::accumulate_(summary, cur.r->s);
+						}
+						return summary;
+					}
+				}
+				typename summarizer::type summarize_r_(const node& cur, KR r){
+					if(r < cur.key()){
+						if(cur.l){
+							return summarize_r_(*cur.l, r);
+						}else{
+							return summarizer::identity_();
+						}
+					}else{
+						typename summarizer::type summary(summarizer::get_(cur.data));
+						if(cur.r){
+							summarizer::accumulate_(summary, summarize_r_(*cur.r, r));
+						}
+						if(cur.l){
+							summarizer::accumulate_(summary, cur.l->s);
+						}
+						return summary;
+					}
+				}
+			public:
+				tree_base_with_summary(): tree_base2(){}
+				inline typename summarizer::type summarize(KR l, KR r){
+					if(this->root){
+						return summarize_(*this->root, l, r);
+					}else{
+						return summarizer::identity_();
+					}
+				}
+				inline typename summarizer::type summarize(const node_view& l, const node_view& r){
+					return summarize(*l, *r);
+				}
+			};
+			
+			class tree_base_with_summary_and_index: public tree_base_with_summary{
+				typename summarizer::type summarize_by_index_(const node& cur, size_t l, size_t r){
+					if(l >= r){
+						return summarizer::identity_();
+					}else if(l == 0 && r >= cur.c){
+						return cur.s;
+					}else{
+						typename summarizer::type summary(summarizer::identity_());
+						size_t cl;
+						if(cur.l){
+							cl = cur.l->c;
+							if(l < cl){
+								summarizer::accumulate_(summary, summarize_by_index_(*cur.l, l, r));
+							}
+						}else{
+							cl = 0;
+						}
+						if(l <= cl && r >= cl + 1){
+							summarizer::accumulate_(summary, summarizer::get_(cur.data));
+						}
+						if(cur.r){
+							if(r > cl + 1){
+								summarizer::accumulate_(summary, summarize_by_index_(*cur.r, l > cl + 1 ? l - cl - 1 : 0, r - cl - 1));
+							}
+						}
+						return summary;
+					}
+				}
+			public:
+				tree_base_with_summary_and_index(): tree_base_with_summary(){}
+				typename summarizer::type summarize_by_index(size_t l, size_t r){
+					if(this->root){
+						return summarize_by_index_(*this->root, l, r);
+					}else{
+						return summarizer::identity_();
+					}
+				}
+			};
+			
+			using tree_base = std::conditional_t<with_summary::value, std::conditional_t<with_index::value, tree_base_with_summary_and_index, tree_base_with_summary>, tree_base2>;
+			
 			
 			class multiset_base0: public tree_base{
 				inline static int _branch_eq(const node& cur, KR k){
@@ -863,7 +1131,7 @@ namespace avltree{
 		};
 	}
 	
-	template<typename K, typename V, tree_spec S = tree_spec::simple> class map: public avltree_base::avltree<K, V, S>::tree_base{
+	template<typename K, typename V, tree_spec S = tree_spec::simple, typename U = std::tuple<>> class map: public avltree_base::avltree<K, V, S, U>::tree_base{
 #ifdef AVLTREE_DEBUG_CLASS
 		friend class AVLTREE_DEBUG_CLASS;
 		using K_ = K;
@@ -871,7 +1139,7 @@ namespace avltree{
 		inline static const avltree::tree_spec S_ = S;
 #endif
 		
-		using base           = typename avltree_base::avltree<K, V, S>;
+		using base           = typename avltree_base::avltree<K, V, S, U>;
 		using super          = typename base::tree_base;
 		using KR             = typename base::KR;
 		using VR             = typename base::VR;
@@ -903,16 +1171,24 @@ namespace avltree{
 		auto reversed() const { return avltree_base::iterator_pair([this](){ return this->rbegin();      }, [this](){ return this->end(); }); }
 		auto keys()     const { return avltree_base::iterator_pair([this](){ return this->key_begin();   }, [this](){ return this->end(); }); }
 		auto values()   const { return avltree_base::iterator_pair([this](){ return this->value_begin(); }, [this](){ return this->end(); }); }
+	
+		template<typename X, X summarize(const X& a, const X& b), X identity(), X get(const typename base::data_type&) = summary::pass<data_type>> using with_summary = map<K, V, S, summary::tuple_append<U, typename summary::summarizer<K, V, S, X, summarize, identity, get>>>;
+		using with_summary_key_sum    = with_summary<V, summary::add, summary::zero, summary::get_key>;
+		using with_summary_key_prod   = with_summary<V, summary::mul, summary::one,  summary::get_key>;
+		using with_summary_value_sum  = with_summary<V, summary::add, summary::zero, summary::get_value>;
+		using with_summary_value_prod = with_summary<V, summary::mul, summary::one,  summary::get_value>;
+		using with_summary_value_min  = with_summary<V, summary::min, summary::max_value, summary::get_value>;
+		using with_summary_value_max  = with_summary<V, summary::max, summary::min_value, summary::get_value>;
 	};
 	
-	template<typename V, tree_spec S = tree_spec::simple> class set: public avltree_base::avltree<V, avltree_base::empty, S>::tree_base{
+	template<typename V, tree_spec S = tree_spec::simple, typename U = std::tuple<>> class set: public avltree_base::avltree<V, avltree_base::empty, S, U>::tree_base{
 #ifdef AVLTREE_DEBUG_CLASS
 		friend class AVLTREE_DEBUG_CLASS;
 		using K_ = V;
 		using V_ = avltree_base::empty;
 		inline static const tree_spec S_ = S;
 #endif
-		using base  = typename avltree_base::avltree<V, avltree_base::empty, S>;
+		using base  = typename avltree_base::avltree<V, avltree_base::empty, S, U>;
 		using super = typename base::tree_base;
 	public:
 		using value_type     = V;
@@ -925,16 +1201,20 @@ namespace avltree{
 		template<typename V_> bool insert(V_&& v){
 			return this->_insert(std::forward<V_>(v));
 		}
+		
+		template<typename X, X summarize(const X& a, const X& b), X identity(), X get(const typename base::data_type&) = summary::pass<X>> using with_summary = set<V, S, summary::tuple_append<U, typename summary::summarizer<K_, V_, S, X, summarize, identity, get>>>;
+		using with_summary_sum  = with_summary<V, summary::add, summary::zero>;
+		using with_summary_prod = with_summary<V, summary::mul, summary::one>;
 	};
 	
-	template<typename V, tree_spec S = tree_spec::simple> class multiset: public avltree_base::avltree<V, avltree_base::empty, S>::multiset_base{
+	template<typename V, tree_spec S = tree_spec::simple, typename U = std::tuple<>> class multiset: public avltree_base::avltree<V, avltree_base::empty, S, U>::multiset_base{
 #ifdef AVLTREE_DEBUG_CLASS
 		friend class AVLTREE_DEBUG_CLASS;
 		using K_ = V;
 		using V_ = avltree_base::empty;
 		inline static const tree_spec S_ = S;
 #endif
-		using base  = typename avltree_base::avltree<V, avltree_base::empty, S>;
+		using base  = typename avltree_base::avltree<V, avltree_base::empty, S, U>;
 		using super = typename base::multiset_base;
 	public:
 		using value_type     = V;
@@ -944,6 +1224,11 @@ namespace avltree{
 		using node_view      = typename base::node_view;
 		using node_uptr_view = typename base::node_uptr_view;
 		multiset(): super(){}
+
+		template<typename X, X summarize(const X& a, const X& b), X identity(), X get(const typename base::data_type&) = summary::pass<X>> using with_summary = multiset<V, S, summary::tuple_append<U, typename summary::summarizer<K_, V_, S, X, summarize, identity, get>>>;
+		using with_summary_sum  = with_summary<V, summary::add, summary::zero>;
+		using with_summary_prod = with_summary<V, summary::mul, summary::one>;
 	};
+	
 	
 }
