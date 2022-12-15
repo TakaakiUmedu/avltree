@@ -1,8 +1,8 @@
 # avltree
 C++ implementation of AVL Tree. O(log N) index access and segment tree like function available
 
-[avltree::map](#avltreemapk-v-s-u)、[avltree::set](#avltreesetv-s-u)、[avltree::multiset](#avltreemultisetv-s-u)を提供。
-操作は要素数Nに対してO(log N)か、O(1)。テンプレート引数の指定により以下のギミックをON/OFFできる。
+[map](#avltreemapk-v-s-u)、[set](#avltreesetv-s-u)、[multiset](#avltreemultisetv-s-u)を提供。
+初期化を除く操作の時間計算量は要素数Nに対して、O(log N)か、O(1)。テンプレート引数の指定により以下のギミックをON/OFFできる。
  - O(log N)でのインデックスアクセス
  - 各部分木の高さを記録しておく(使い道が思いつかないけど試しに実装)
  - segment tree同様に、可換則が成り立つ任意の演算での区間集計をO(log N)で実行
@@ -73,7 +73,7 @@ C++ implementation of AVL Tree. O(log N) index access and segment tree like func
      - それぞれ、合計、積算を追加した型
 
 ## avltree::map<K, V, S, U>
- - 連想配列
+ - K型のキーとV型の値を格納する、連想配列
  - コンストラクタ
    - avltree::map<K, V, S>()
      - 空の連想配列を作る
@@ -85,7 +85,7 @@ C++ implementation of AVL Tree. O(log N) index access and segment tree like func
      - kが記録されていない場合は新規に記録してtrueを、既にkが記録されている場合はvで上書きしてfalseを返す
 
 ## avltree::set<V, S, U>
- - 集合
+ - V型の値を格納する、集合
  - コンストラクタ
    - avltree::set<V, S, U>()
      - 空の集合を作る
@@ -97,7 +97,7 @@ C++ implementation of AVL Tree. O(log N) index access and segment tree like func
      - 追加された場合はtrue、既に含まれている値で追加されなかった場合はfalseを返す
 
 ## avltree::multiset<V, S, U>
- - 多重集合
+ - V型の値を格納する、多重集合
  - コンストラクタ
    - avltree::multiset<V, S, U>()
      - 空の集合を作る
@@ -107,6 +107,12 @@ C++ implementation of AVL Tree. O(log N) index access and segment tree like func
    - insert(v)
      - 値vを集合に追加
      - 常にtrueを返す
+   - find(v)
+     - 最小のvへのnode_viewを取得する
+   - find_last(v)
+     - 最大のvへのnode_viewを取得する
+   - count(v)  ([tree_spec::with_index](avltreetree_spec)が指定されている場合のみ利用可能)
+     - 多重集合が含むvの個数を返す
 
 ## avltree::tree_spec
  - 下記の値を|で繋いで指定可能(by_refとby_valの両方を同時に指定するとエラー)
@@ -119,20 +125,23 @@ C++ implementation of AVL Tree. O(log N) index access and segment tree like func
    - avltree::tree_spec::pass_value_by_val : 各メンバメソッドの引数のvを値渡しにする
 
 ## node_view
- - 検索結果を返す
+ - 検索結果を表す
  - data_typeへのポインタ風に使えるoperatorを提供
  - nullptrとの比較でtrueになる場合や、条件分岐などでのboolへの変換でfalseになる場合は、対象の要素は存在しない
- - 内容はデータ構造に変更が行われるまでは利用可能
+ - 木の内部のdata_type型へのポインタを内包しているので、内容はデータ構造に変更が行われるまでは利用可能
+   - よって、node_view自体のコピーは可能だが、コピーしてもdata_typeへのポインタのコピーになるため寿命は延びない
  - メンバー関数
    - size()  (with_indexを付与した場合のみ利用可能)
      - 部分木のノード数を返す
 
 ## node_uptr_view
- - node_viewと同じだが、データ構造から既に消された要素へのunique_ptrを含む。そのため、コピーは不可
+ - node_viewとほぼ同じだが、データ構造から既に消された要素へのunique_ptrを含む。そのため、コピーは不可
  - 内容は、返されたnode_uptr_viewか、その内容を移動した先の変数の寿命が尽きるまでは利用可能
 
 ## iterator
  - node_viewにiteratorの機能を追加したもの
+ - 前置、後置の++、--のいずれも利用可能
+ - --は、先頭までiterate可能。++は末尾の直後までiterate可能で、そこまでiterateすると==nullptrとなる
 
 ## reverse_iterator
  - iteratorと逆順でiterateするiterator
@@ -152,7 +161,7 @@ C++ implementation of AVL Tree. O(log N) index access and segment tree like func
 - インデックスアクセスできて、区間の合計値を求められる多重集合
 ```
 // tree_spec::with_indexを指定したint64_t型の多重集合に、with_summary_sumで区間の合計値を集計する機能を追加
-avltree::multiset<int64_t, avltree::tree_spec::with_index>::with_summary_sum values();
+avltree::multiset<int64_t, avltree::tree_spec::with_index>::with_summary_sum values;
 // 先頭K個の値の合計値を出力
 std::cout << values.summarize_by_index(0, K) << std::endl;
 ```
@@ -174,7 +183,7 @@ std::vector<int64_t> get(const int64_t& d){
 	return std::vector<int64_t>(1, d);
 }
 // int64_t型の集合に、with_summary_prodで区間の積を集計する機能と、with_summary<>で上記の3つの関数を使って値をvectorに集める機能を追加
-avltree::set<int64_t>::::with_summary_prod::with_summary<std::vector<int64_t>, summarize, identity, get> values();
+avltree::set<int64_t>::::with_summary_prod::with_summary<std::vector<int64_t>, summarize, identity, get> values;
 // 集合に含まれるs以上t以下の値について集計
 tuple<int64_t, vector<int64_t>> result = values.summarize(s, t);
 // 集合に含まれるs以上t以下の値の積を表示
