@@ -29,7 +29,7 @@ namespace avltree{
 	template<typename K, typename V, tree_spec S, typename U> class map;
 	template<typename V, tree_spec S, typename U> class multiset;
 	
-	namespace summary{
+	namespace summarizer{
 		template<typename T> inline T pass(const T& d){ return d; }
 		template<typename D, typename T> inline T get_key(const D& d){ return d.first; }
 		template<typename D, typename T> inline T get_value(const D& d){ return d.second; }
@@ -52,7 +52,7 @@ namespace avltree{
 			using tuple_type = std::tuple<>;
 		};
 		
-		template<typename K, typename V, tree_spec S, typename T, T summarize(const T& a, const T& b), T identity(), T get(const typename avltree_base::avltree<K, V, S>::data_type&) = pass<T>> struct summarizer{
+		template<typename K, typename V, tree_spec S, typename T, T summarize(const T& a, const T& b), T identity(), T get(const typename avltree_base::avltree<K, V, S>::data_type&) = pass<T>> struct single{
 			using data_type = typename avltree_base::avltree<K, V, S>::data_type;
 			using type = T;
 			inline static T get_(const data_type& d)          { return get(d); }
@@ -61,7 +61,7 @@ namespace avltree{
 			inline static void accumulate_(T& a, const T& b)  { a = summarize(a, b); }
 		};
 		
-		template<typename K, typename V, tree_spec S, typename U> struct summarizer_combined{
+		template<typename K, typename V, tree_spec S, typename U> struct combined{
 			using data_type = typename avltree_base::avltree<K, V, S>::data_type;
 			using type = typename summarizer_tuple_converter<U, std::tuple_size_v<U>>::tuple_type;
 		private:
@@ -99,7 +99,7 @@ namespace avltree{
 		template<typename K, typename V, tree_spec S, typename U> using tuple_to_summarizer = 
 			std::conditional_t<std::tuple_size_v<U> == 0, avltree_base::empty, 
 			std::conditional_t<std::tuple_size_v<U> == 1, std::tuple_element_t<0, tuple_append<U, int>>, // to avoid error caused by std::tuple_element<0, tuple<>>
-					summarizer_combined<K, V, S, U>>>;
+					combined<K, V, S, U>>>;
 	}
 //	template<typename K, typename V, tree_spec S> class summarizer;
 	
@@ -305,7 +305,7 @@ namespace avltree{
 				WITH SUMMARY or not : node_base4
 			*/
 			
-			using summarizer = summary::tuple_to_summarizer<K, V, S, U>;
+			using summarizer = summarizer::tuple_to_summarizer<K, V, S, U>;
 			
 			struct node_with_summary : public node_base3{
 				typename summarizer::type s;
@@ -1158,6 +1158,12 @@ namespace avltree{
 		using with_value    = typename base::with_value;
 		
 		map(): super(){}
+		template<class InputIter> map(InputIter first, InputIter last): super(){
+			for(auto p = first; p != last; p ++){
+				const auto& [k, v] = *p;
+				this->insert(k, v);
+			}
+		}
 		template<typename K_, typename V_> bool insert(K_&& k, V_&& v){
 			return this->_insert(std::forward<K_>(k), std::forward<V_>(v));
 		}
@@ -1172,13 +1178,13 @@ namespace avltree{
 		auto keys()     const { return avltree_base::iterator_pair([this](){ return this->key_begin();   }, [this](){ return this->end(); }); }
 		auto values()   const { return avltree_base::iterator_pair([this](){ return this->value_begin(); }, [this](){ return this->end(); }); }
 	
-		template<typename X, X summarize(const X& a, const X& b), X identity(), X get(const typename base::data_type&) = summary::pass<data_type>> using with_summary = map<K, V, S, summary::tuple_append<U, typename summary::summarizer<K, V, S, X, summarize, identity, get>>>;
-		using with_summary_key_sum    = with_summary<V, summary::add, summary::zero, summary::get_key>;
-		using with_summary_key_prod   = with_summary<V, summary::mul, summary::one,  summary::get_key>;
-		using with_summary_value_sum  = with_summary<V, summary::add, summary::zero, summary::get_value>;
-		using with_summary_value_prod = with_summary<V, summary::mul, summary::one,  summary::get_value>;
-		using with_summary_value_min  = with_summary<V, summary::min, summary::max_value, summary::get_value>;
-		using with_summary_value_max  = with_summary<V, summary::max, summary::min_value, summary::get_value>;
+		template<typename X, X summarize(const X& a, const X& b), X identity(), X get(const typename base::data_type&) = summarizer::pass<data_type>> using with_summary = map<K, V, S, summarizer::tuple_append<U, typename summarizer::single<K, V, S, X, summarize, identity, get>>>;
+		using with_summary_key_sum    = with_summary<V, summarizer::add, summarizer::zero, summarizer::get_key>;
+		using with_summary_key_prod   = with_summary<V, summarizer::mul, summarizer::one,  summarizer::get_key>;
+		using with_summary_value_sum  = with_summary<V, summarizer::add, summarizer::zero, summarizer::get_value>;
+		using with_summary_value_prod = with_summary<V, summarizer::mul, summarizer::one,  summarizer::get_value>;
+		using with_summary_value_min  = with_summary<V, summarizer::min, summarizer::max_value, summarizer::get_value>;
+		using with_summary_value_max  = with_summary<V, summarizer::max, summarizer::min_value, summarizer::get_value>;
 	};
 	
 	template<typename V, tree_spec S = tree_spec::simple, typename U = std::tuple<>> class set: public avltree_base::avltree<V, avltree_base::empty, S, U>::tree_base{
@@ -1198,13 +1204,18 @@ namespace avltree{
 		using node_view      = typename base::node_view;
 		using node_uptr_view = typename base::node_uptr_view;
 		set(): super(){}
+		template<class InputIter> set(InputIter first, InputIter last): super(){
+			for(auto p = first; p != last; p ++){
+				this->insert(*p);
+			}
+		}
 		template<typename V_> bool insert(V_&& v){
 			return this->_insert(std::forward<V_>(v));
 		}
 		
-		template<typename X, X summarize(const X& a, const X& b), X identity(), X get(const typename base::data_type&) = summary::pass<X>> using with_summary = set<V, S, summary::tuple_append<U, typename summary::summarizer<K_, V_, S, X, summarize, identity, get>>>;
-		using with_summary_sum  = with_summary<V, summary::add, summary::zero>;
-		using with_summary_prod = with_summary<V, summary::mul, summary::one>;
+		template<typename X, X summarize(const X& a, const X& b), X identity(), X get(const typename base::data_type&) = summarizer::pass<X>> using with_summary = set<V, S, summarizer::tuple_append<U, typename summarizer::single<K_, V_, S, X, summarize, identity, get>>>;
+		using with_summary_sum  = with_summary<V, summarizer::add, summarizer::zero>;
+		using with_summary_prod = with_summary<V, summarizer::mul, summarizer::one>;
 	};
 	
 	template<typename V, tree_spec S = tree_spec::simple, typename U = std::tuple<>> class multiset: public avltree_base::avltree<V, avltree_base::empty, S, U>::multiset_base{
@@ -1224,10 +1235,15 @@ namespace avltree{
 		using node_view      = typename base::node_view;
 		using node_uptr_view = typename base::node_uptr_view;
 		multiset(): super(){}
+		template<class InputIter> multiset(InputIter first, InputIter last): super(){
+			for(auto p = first; p != last; p ++){
+				this->insert(*p);
+			}
+		}
 
-		template<typename X, X summarize(const X& a, const X& b), X identity(), X get(const typename base::data_type&) = summary::pass<X>> using with_summary = multiset<V, S, summary::tuple_append<U, typename summary::summarizer<K_, V_, S, X, summarize, identity, get>>>;
-		using with_summary_sum  = with_summary<V, summary::add, summary::zero>;
-		using with_summary_prod = with_summary<V, summary::mul, summary::one>;
+		template<typename X, X summarize(const X& a, const X& b), X identity(), X get(const typename base::data_type&) = summarizer::pass<X>> using with_summary = multiset<V, S, summarizer::tuple_append<U, typename summarizer::single<K_, V_, S, X, summarize, identity, get>>>;
+		using with_summary_sum  = with_summary<V, summarizer::add, summarizer::zero>;
+		using with_summary_prod = with_summary<V, summarizer::mul, summarizer::one>;
 	};
 	
 	

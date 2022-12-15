@@ -64,6 +64,25 @@ int main(void){
 					}
 				}
 			}
+			for(int j = 0; j < M; j ++){
+				for(int k = j; k < M; k ++){
+					int64_t s1 = 0;
+					int64_t p1 = 1;
+					for(const auto& v: vec){
+						if(j <= v && v <= k){
+							s1 += v;
+							p1 *= v;
+						}
+					}
+					const auto [s2, p2] = tree.summarize(j, k);
+					if(s1 != s2 || p1 != p2){
+						cout << "ERROR" << endl;
+						print(vec, j, k, s1, p1);
+						print(tree, j, k, s2, p2);
+						return 1;
+					}
+				}
+			}
 		}
 		cout << "set passed with size: " << vec.size() << endl;
 	}
@@ -93,6 +112,25 @@ int main(void){
 						p1 *= vec[l];
 					}
 					const auto [s2, p2] = tree.summarize_by_index(j, k);
+					if(s1 != s2 || p1 != p2){
+						cout << "ERROR" << endl;
+						print(vec, j, k, s1, p1);
+						print(tree, j, k, s2, p2);
+						return 1;
+					}
+				}
+			}
+			for(int j = 0; j < M; j ++){
+				for(int k = j; k < M; k ++){
+					int64_t s1 = 0;
+					int64_t p1 = 1;
+					for(const auto& v: vec){
+						if(j <= v && v <= k){
+							s1 += v;
+							p1 *= v;
+						}
+					}
+					const auto [s2, p2] = tree.summarize(j, k);
 					if(s1 != s2 || p1 != p2){
 						cout << "ERROR" << endl;
 						print(vec, j, k, s1, p1);
@@ -140,6 +178,35 @@ int main(void){
 						p2 *= vec2[l];
 					}
 					const auto [s3, p3, s4, p4, min2, max2] = tree.summarize_by_index(j, k);
+					if(s1 != s3 || p1 != p3 || s2 != s4 || p2 != p4 || min1 != min2 || max1 != max2){
+						cout << "ERROR" << endl;
+						print(values, j, k, s1, p1, s2, p2);
+						print(tree, j, k, s3, p3, s4, p4);
+						return 1;
+					}else{
+//						print(tree, j, k, s3, p3, s4, p4);
+					}
+				}
+			}
+			for(int j = 0; j < M; j ++){
+				for(int k = j; k < M; k ++){
+					int64_t s1 = 0;
+					int64_t p1 = 1;
+					int64_t s2 = 0;
+					int64_t p2 = 1;
+					int64_t min1 = numeric_limits<int64_t>::max();
+					int64_t max1 = numeric_limits<int64_t>::min();
+					for(const auto& [a, b]: values){
+						if(j <= a && a <= k){
+							s1 += a;
+							p1 *= a;
+							s2 += b;
+							p2 *= b;
+							min1 = min(min1, b);
+							max1 = max(max1, b);
+						}
+					}
+					const auto [s3, p3, s4, p4, min2, max2] = tree.summarize(j, k);
 					if(s1 != s3 || p1 != p3 || s2 != s4 || p2 != p4 || min1 != min2 || max1 != max2){
 						cout << "ERROR" << endl;
 						print(values, j, k, s1, p1, s2, p2);
