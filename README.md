@@ -1,7 +1,7 @@
 # avltree
 C++ implementation of AVL Tree. O(log N) index access and segment tree like function available
 
-[avltree::map](#avltree::map<K,-V,-S,-U>)、[avltree::set](#avltree::set<V,-S,-U>)、[avltree::multiset](#avltree::multiset<V,-S,-U>)を提供。
+[avltree::map](#avltreemapk-v-s-u)、[avltree::set](#avltreesetv-s-u)、[avltree::multiset](#avltreemultisetv-s-u)を提供。
 操作は要素数Nに対してO(log N)か、O(1)。テンプレート引数の指定により以下のギミックをON/OFFできる。
  - O(log N)でのインデックスアクセス
  - 各部分木の高さを記録しておく(使い道が思いつかないけど試しに実装)
@@ -13,7 +13,7 @@ C++ implementation of AVL Tree. O(log N) index access and segment tree like func
  - テンプレート引数
    - typename K: キーの型(mapのみ)
    - typename V: 値の型
-   - [tree_spec](#avltree::tree_spec) S: 追加のギミックを指定
+   - [tree_spec](#avltreetree_spec) S: 追加のギミックを指定
    - typename U: [区間集計](#区間集計)を指定
  - メンバー関数(以下、xは、mapの場合は型がKのキー、setとmultisetでは型がVの値)
    - remove(x)
@@ -36,7 +36,7 @@ C++ implementation of AVL Tree. O(log N) index access and segment tree like func
      - kが最大の[reverse_iterator](#reverse_iterator)を返す
    - rend()
      - end()と同様
- - 追加のメンバー関数([tree_spec](#avltree::tree_spec)::with_indexを指定した場合のみ利用可能)
+ - 追加のメンバー関数([tree_spec](#avltreetree_spec)::with_indexを指定した場合のみ利用可能)
    - at(size_t i)
      - i番目の要素の[node_view](#node_view)を返す
    - index(x)
@@ -50,7 +50,7 @@ C++ implementation of AVL Tree. O(log N) index access and segment tree like func
  - 追加のメンバー関数(Uに[avltree::summerizer::single](#区間集計)を1個以上含むstd::tupleを指定した場合のみ利用可能)
    - summerize(x_s, x_e)
      - キー(mapの場合)もしくは値(set、multisetの場合)が、x_s以上、x_e*以下*の要素の集計結果を返す
- - 追加のメンバー関数([tree_spec](#avltree::tree_spec)::with_indexを指定し、Uに[avltree::summerizer::single](#区間集計)を1個以上含むstd::tupleを指定した場合のみ利用可能)
+ - 追加のメンバー関数([tree_spec](#avltreetree_spec)::with_indexを指定し、Uに[avltree::summerizer::single](#区間集計)を1個以上含むstd::tupleを指定した場合のみ利用可能)
    - summerize_by_index(i_s, i_e)   
      - i_s番目以上、i_e番目*未満*の要素の集計結果を返す
  - 型
