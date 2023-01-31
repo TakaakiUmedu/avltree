@@ -33,7 +33,8 @@ int main(void){
 	std::mt19937 engine(0);
 	std::uniform_int_distribution<> dist(0, M);
 	{
-		avltree::set<int64_t, avltree::tree_spec::with_index>::with_summary_sum::with_summary_prod tree;
+//		avltree::set<int64_t, avltree::tree_spec::with_index>::with_summary_sum::with_summary_prod tree;
+		avltree::with_summary_prod<avltree::with_summary_sum<avltree::set<int64_t, avltree::tree_spec::with_index>>> tree;
 		vector<int64_t> vec;
 		
 		for(int i = 0; i < N; i ++){
@@ -88,7 +89,8 @@ int main(void){
 	}
 
 	{
-		avltree::multiset<int64_t, avltree::tree_spec::with_index>::with_summary_sum::with_summary_prod tree;
+//		avltree::multiset<int64_t, avltree::tree_spec::with_index>::with_summary_sum::with_summary_prod tree;
+		avltree::with_summary_prod<avltree::with_summary_sum<avltree::multiset<int64_t, avltree::tree_spec::with_index>>> tree;
 		vector<int64_t> vec;
 		
 		for(int i = 0; i < N; i ++){
@@ -144,7 +146,8 @@ int main(void){
 	}
 
 	{
-		avltree::map<int64_t, int64_t, avltree::tree_spec::with_index>::with_summary_key_sum::with_summary_key_prod::with_summary_value_sum::with_summary_value_prod::with_summary_value_min::with_summary_value_max tree;
+//		avltree::map<int64_t, int64_t, avltree::tree_spec::with_index>::with_summary_key_sum::with_summary_key_prod::with_summary_value_sum::with_summary_value_prod::with_summary_value_min::with_summary_value_max tree;
+		avltree::with_summary_value_max<avltree::with_summary_value_min<avltree::with_summary_value_prod<avltree::with_summary_value_sum<avltree::with_summary_key_prod<avltree::with_summary_key_sum<avltree::map<int64_t, int64_t, avltree::tree_spec::with_index>>>>>>> tree;
 		map<int64_t, int64_t> values;
 		
 		for(int i = 0; i < N; i ++){
@@ -221,6 +224,10 @@ int main(void){
 		cout << "map passed with size: " << values.size() << endl;
 	}
 	
+//	avltree::with_summary_value_max<avltree::map<tuple<int, int>, tuple<int, int>, avltree::tree_spec::with_index>> t;
+	avltree::map<tuple<int, int>, tuple<int, int>, avltree::tree_spec::with_index> t;
+	t.insert(make_tuple(10, 10), make_tuple(10, 10));
+//	print(t.summarize_by_index(0, 0));
 	
 	
 	return 0;

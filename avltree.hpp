@@ -4,6 +4,7 @@
 #include <cassert>
 #include <functional>
 #include <tuple>
+#include <limits>
 
 namespace avltree{
 	enum class tree_spec: int{
@@ -39,10 +40,10 @@ namespace avltree{
 		template<typename T> inline T max(const T& a, const T& b){ return std::max(a, b); }
 		template<typename T> inline T min(const T& a, const T& b){ return std::min(a, b); }
 		
-		template<typename T> inline T one(){ return 1; }
-		template<typename T> inline T zero(){ return 0; }
-		template<typename T> inline T min_value(){ return std::numeric_limits<T>::min(); }
-		template<typename T> inline T max_value(){ return std::numeric_limits<T>::max(); }
+		template<typename T> inline std::enable_if_t<std::is_arithmetic_v<T>, T> one(){ return 1; }
+		template<typename T> inline std::enable_if_t<std::is_arithmetic_v<T>, T> zero(){ return 0; }
+		template<typename T> inline std::enable_if_t<std::is_arithmetic_v<T>, T> min_value(){ return std::numeric_limits<T>::min(); }
+		template<typename T> inline std::enable_if_t<std::is_arithmetic_v<T>, T> max_value(){ return std::numeric_limits<T>::max(); }
 
 		template<typename U, typename T> using tuple_append = decltype(std::tuple_cat(std::declval<U>(), std::make_tuple(std::declval<T>())));
 		template<typename U, size_t I> struct summarizer_tuple_converter{
@@ -101,7 +102,6 @@ namespace avltree{
 			std::conditional_t<std::tuple_size_v<U> == 1, std::tuple_element_t<0, tuple_append<U, int>>, // to avoid error caused by std::tuple_element<0, tuple<>>
 					combined<K, V, S, U>>>;
 	}
-//	template<typename K, typename V, tree_spec S> class summarizer;
 	
 	namespace avltree_base{
 		template<typename I, typename O, typename T, T F(O)> class iterator_wrapper{
@@ -174,7 +174,6 @@ namespace avltree{
 			class node_with_value;
 			class node_without_value;
 			using node = std::conditional_t<with_value::value, node_with_value, node_without_value>;
-//			class node;
 			using node_uptr = std::unique_ptr<node>;
 		private:
 			static std::string node_to_string(const node& node){
@@ -1179,14 +1178,16 @@ namespace avltree{
 		auto values()   const { return avltree_base::iterator_pair([this](){ return this->value_begin(); }, [this](){ return this->end(); }); }
 	
 		template<typename X, X summarize(const X& a, const X& b), X identity(), X get(const typename base::data_type&) = summarizer::pass<data_type>> using with_summary = map<K, V, S, summarizer::tuple_append<U, typename summarizer::single<K, V, S, X, summarize, identity, get>>>;
-		using with_summary_key_sum    = with_summary<V, summarizer::add, summarizer::zero, summarizer::get_key>;
-		using with_summary_key_prod   = with_summary<V, summarizer::mul, summarizer::one,  summarizer::get_key>;
-		using with_summary_value_sum  = with_summary<V, summarizer::add, summarizer::zero, summarizer::get_value>;
-		using with_summary_value_prod = with_summary<V, summarizer::mul, summarizer::one,  summarizer::get_value>;
-		using with_summary_value_min  = with_summary<V, summarizer::min, summarizer::max_value, summarizer::get_value>;
-		using with_summary_value_max  = with_summary<V, summarizer::max, summarizer::min_value, summarizer::get_value>;
+		
+// can be used only in C++ 20 or over
+//		template<typename X = int> using with_summary_key_sum    = with_summary<K, summarizer::add, summarizer::zero, summarizer::get_key>;
+//		template<typename X = int> using with_summary_key_prod   = with_summary<K, summarizer::mul, summarizer::one,  summarizer::get_key>;
+//		template<typename X = int> using with_summary_value_sum  = with_summary<V, summarizer::add, summarizer::zero, summarizer::get_value>;
+//		template<typename X = int> using with_summary_value_prod = with_summary<V, summarizer::mul, summarizer::one,  summarizer::get_value>;
+//		template<typename X = int> using with_summary_value_min  = with_summary<V, summarizer::min, summarizer::max_value, summarizer::get_value>;
+//		template<typename X = int> using with_summary_value_max  = with_summary<V, summarizer::max, summarizer::min_value, summarizer::get_value>;
 	};
-	
+
 	template<typename V, tree_spec S = tree_spec::simple, typename U = std::tuple<>> class set: public avltree_base::avltree<V, avltree_base::empty, S, U>::tree_base{
 		using K_ = V;
 		using V_ = avltree_base::empty;
@@ -1214,8 +1215,6 @@ namespace avltree{
 		}
 		
 		template<typename X, X summarize(const X& a, const X& b), X identity(), X get(const typename base::data_type&) = summarizer::pass<X>> using with_summary = set<V, S, summarizer::tuple_append<U, typename summarizer::single<K_, V_, S, X, summarize, identity, get>>>;
-		using with_summary_sum  = with_summary<V, summarizer::add, summarizer::zero>;
-		using with_summary_prod = with_summary<V, summarizer::mul, summarizer::one>;
 	};
 	
 	template<typename V, tree_spec S = tree_spec::simple, typename U = std::tuple<>> class multiset: public avltree_base::avltree<V, avltree_base::empty, S, U>::multiset_base{
@@ -1240,11 +1239,17 @@ namespace avltree{
 				this->insert(*p);
 			}
 		}
-
 		template<typename X, X summarize(const X& a, const X& b), X identity(), X get(const typename base::data_type&) = summarizer::pass<X>> using with_summary = multiset<V, S, summarizer::tuple_append<U, typename summarizer::single<K_, V_, S, X, summarize, identity, get>>>;
-		using with_summary_sum  = with_summary<V, summarizer::add, summarizer::zero>;
-		using with_summary_prod = with_summary<V, summarizer::mul, summarizer::one>;
 	};
 	
+	template<typename T> using with_summary_key_sum    = typename T::template with_summary<typename T::key_type,   summarizer::add, summarizer::zero<typename T::key_type>, summarizer::get_key>;
+	template<typename T> using with_summary_key_prod   = typename T::template with_summary<typename T::key_type,   summarizer::mul, summarizer::one<typename T::key_type>,  summarizer::get_key>;
+	template<typename T> using with_summary_value_sum  = typename T::template with_summary<typename T::value_type, summarizer::add, summarizer::zero<typename T::value_type>, summarizer::get_value>;
+	template<typename T> using with_summary_value_prod = typename T::template with_summary<typename T::value_type, summarizer::mul, summarizer::one<typename T::value_type>,  summarizer::get_value>;
+	template<typename T> using with_summary_value_min  = typename T::template with_summary<typename T::value_type, summarizer::min, summarizer::max_value<typename T::value_type>, summarizer::get_value>;
+	template<typename T> using with_summary_value_max  = typename T::template with_summary<typename T::value_type, summarizer::max, summarizer::min_value<typename T::value_type>, summarizer::get_value>;
 	
+	template<typename T> using with_summary_sum  = typename T::template with_summary<typename T::value_type, summarizer::add, summarizer::zero<typename T::value_type>>;
+	template<typename T> using with_summary_prod = typename T::template with_summary<typename T::value_type, summarizer::mul, summarizer::one<typename T::value_type>>;
+
 }

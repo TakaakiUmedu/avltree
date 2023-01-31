@@ -63,14 +63,7 @@ C++ implementation of AVL Tree. O(log N) index access and segment tree like func
    - [::with_summary<typename X, X summarize(const X& a, const X& b), X identity(), X get(const data_type& d) = summarizer::pass>](#区間集計)
      - 関数で指定した区間集計を追加した型
      - 複数追加可能で、複数追加した場合は区間集計の返り値は集計結果それぞれを含むstd::tupleになる
-   - [::with_summary_key_sum](#区間集計)、[::with_summary_key_prod](#区間集計)、[::with_summary_value_sum](#区間集計)、[::with_summary_value_prod](#区間集計)、[::with_summary_value_min](#区間集計)、[::with_summary_value_max](#区間集計)
-     - mapで利用可能
-     - 汎用の::with_summary<>の単純なものを簡単に指定できるようにしたショートカット
-     - それぞれ、キーの合計、積算、値の合計、積算、最小、最大の区間集計を追加した型
-   - [::with_summary_sum](#区間集計)、[::with_summary_prod](#区間集計)
-     - set、multisetで利用可能
-     - 汎用の::with_summary<>の単純なものを簡単に指定できるようにしたショートカット
-     - それぞれ、合計、積算を追加した型
+     - 合計、積算、最大、最小などの基本的な物は、一括設定するテンプレートも用意。[区間集計](#区間集計)を参照
 
 ## avltree::map<K, V, S, U>
  - K型のキーとV型の値を格納する、連想配列
@@ -156,6 +149,16 @@ C++ implementation of AVL Tree. O(log N) index access and segment tree like func
    - get: 各ノードのdata_typeから集計対象とする値をXに変換する関数を指定する。mapの場合はキー(d.first)と値(d.second)のどちらを集計するかなど。Xとdata_typeが等しい場合は省略可能で、省略した場合はdata_typeがそのまま集計対象になる
  - Uが1個の要素のみを場合は、summarize()やsummarize_by_index()は、集計結果をXの値として返す
  - Uが複数の要素を含む場合は、summarize()やsummarize_by_index()は、それぞれの集計結果を同じ順序でstd::tupleで束ねた値として返す
+ - 単純な区間集計を一括設定するためのテンプレート
+   - avltree::with_summary_key_sum<T>、avltree::with_summary_key_prod<T>、avltree::with_summary_value_sum<T>、avltree::with_summary_value_prod<T>、avltree::with_summary_value_min<T>、avltree::with_summary_value_max<T>
+     - 汎用の::with_summary<>の単純なものを簡単に指定できるようにしたショートカット
+     - avltree:mapに対して利用可能
+     - Tとしてavltree::mapを与えると、それぞれ、キーの合計、積算、値の合計、積算、最小、最大の区間集計を追加した型が得られる
+     - ネストさせての複数指定も可能(内側のものから順に追加される)
+   - avltree::with_summary_sum<T>、avltree::with_summary_prod<T>
+     - 汎用の::with_summary<>の単純なものを簡単に指定できるようにしたショートカット
+     - Tとしてavltree::setかavltree:multisetを与えると、それぞれ、合計、積算を追加した型が得られる
+     - ネストさせての複数指定も可能(内側のものから順に追加される)
 
 ## 利用例
 - インデックスアクセスできて、区間の合計値を求められる多重集合

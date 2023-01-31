@@ -19,9 +19,9 @@
 #ifdef USE_PYTHON_LIKE_PRINT
 #include "print.hpp"
 #else
-template<char SEP = ' ', char END = '\n', class... A> inline void print(A& ...){}
-template<char SEP = ' ', char END = '\n', class... A> inline void printe(A& ...){}
-template<char SEP = ' ', char END = '\n', class... A> inline void printo(A& ...){}
+template<char SEP = ' ', char END = '\n', class... A> inline void print(A&& ...){}
+template<char SEP = ' ', char END = '\n', class... A> inline void printe(A&& ...){}
+template<char SEP = ' ', char END = '\n', class... A> inline void printo(A&& ...){}
 #define define_print(...)
 #define define_print_with_names(...)
 #define define_to_tuple(...)
@@ -63,7 +63,7 @@ template<char SEP = ' ', char END = '\n', typename ...A> inline void printo(std:
 	}
 
 #define define_print_with_names(...) \
-	inline static std::vector<std::string>& python_like_print_member_names(){ \
+	inline static const std::vector<std::string>& python_like_print_member_names(){ \
 		static std::vector<std::string> member_names = python_like_split_and_strip::split_and_strip(#__VA_ARGS__, ','); \
 		return member_names; \
 	}\
@@ -72,6 +72,7 @@ template<char SEP = ' ', char END = '\n', typename ...A> inline void printo(std:
 		python_like_print::print_members_with_names<0>(out, python_like_print_member_names(), __VA_ARGS__); \
 		out << "}"; \
 	}
+
 
 // 同じようなノリで、指定したメンバーをtupleに変換する関数を定義する
 #define define_to_tuple(...) \
@@ -90,13 +91,15 @@ namespace python_like_print{
 	using std::declval, std::enable_if_t, std::is_same_v, std::remove_reference_t, std::is_lvalue_reference_v, std::true_type, std::false_type;
 	static bool print_char_as_int = false;
 	
+	// T iが++iできて、*iできる場合に、*iを返すことで、iteratorならその指す型をチェックするための関数
+	template<typename T> inline auto iterchecker(T iter){ return *++iter; }
+	
 	// iteratorの類のように、begin()とend()が付いている場合に、*begin()の型を取得するためのクラス
 	template<typename T,
 	         typename B = decltype(declval<T>().begin()),
 	         typename E = decltype(declval<T>().end()),
-	         typename I = decltype(declval<B>().operator++()),
 	         typename C = decltype(static_cast<bool>(declval<B>() != declval<E>())),
-	         typename V = decltype(*declval<B>())>
+             typename V = decltype(iterchecker(declval<B>()))>
 	struct iterator_return_type{
 		using type = enable_if_t<is_same_v<C, bool>, V>;
 	};
@@ -113,33 +116,38 @@ namespace python_like_print{
 	                                          inline void print_item(ostream& out, bool value);
 	template<typename T, typename V = typename iterator_return_type<T>::type>
 	                                          inline void print_item(ostream& out, const T& t);
-	template<typename T, typename S = decltype(cout << declval<T>()), typename R = enable_if_t<is_same_v<remove_reference_t<S>, basic_ostream<char>> && is_lvalue_reference_v<S>>>
-	                                          inline void print_item(ostream& out, const T& value);
-	
+
 	template<typename T, typename X = decltype(declval<T>().python_like_print(cout))>
 	                                          inline ostream& operator<<(ostream& out, const T& value);
 	
+	template<typename T, typename S = decltype(cout << declval<T>()), typename R = enable_if_t<is_same_v<remove_reference_t<S>, decltype(cout)> && is_lvalue_reference_v<S>>>
+	                                          inline void print_item(ostream& out, const T& value);
+	
 	template<typename IteratorB, typename IteratorE> inline void print_all(ostream& out, IteratorB begin, IteratorE end);
 	template<size_t N = 0, typename ...T> inline void print_items_in_tuple(ostream &out, const tuple<T...>& tuple);
-	template<size_t N, typename T> inline void print_members_with_names(ostream& out, vector<string> names, const T& arg);
-	template<size_t N, typename F, typename ...T> inline void print_members_with_names(ostream& out, vector<string> names, const F& arg, T ...args);
+	template<size_t N, typename T>                inline void print_members_with_names(ostream& out, const vector<string>& names, const T& arg);
+	template<size_t N, typename F, typename ...T> inline void print_members_with_names(ostream& out, const vector<string>& names, const F& arg, T ...args);
 	
 	template<char SEP, char END>                            inline void print_to_stream(ostream& out);
 	template<char SEP, char END, typename T, typename ...A> inline void print_to_stream(ostream& out, const T& value, const A& ...args);
 }
 
+//int x = std::cout;
+//int z = std::enable_if_t<false, void>();
+//int y = std::enable_if_t<std::is_same_v<std::remove_reference_t<decltype(std::cout << 1)>, decltype(std::cout)>, void>();
+
 // 標準出力に出力する関数の実体
-template<char SEP = ' ', char END = '\n', typename ...A> inline void print(const A& ...args){
+template<char SEP, char END, typename ...A> inline void print(const A& ...args){
 	printo<SEP, END, A...>(std::cout, args...);
 }
 
 // 同じものの標準エラーバージョン
-template<char SEP = ' ', char END = '\n', typename ...A> inline void printe(const A& ...args){
+template<char SEP, char END, typename ...A> inline void printe(const A& ...args){
 	printo<SEP, END, A...>(std::cerr, args...);
 }
 
 // 同じものの出力先自由バージョン
-template<char SEP = ' ', char END = '\n', typename ...A> inline void printo(std::ostream& out, const A& ...args){
+template<char SEP, char END, typename ...A> inline void printo(std::ostream& out, const A& ...args){
 	python_like_print::print_to_stream<SEP, END, A...>(out, args...);
 }
 
@@ -187,7 +195,7 @@ namespace python_like_print{
 // そのままでは無理なので、vectorizableなバージョンを定義して、defineで置き換えてしまう
 namespace atcoder{
 #ifdef ATCODER_FENWICKTREE_HPP
-	template<class S> get_fenwick_tree_value(fenwick_tree<S>& ft, int index){
+	template<class S> S get_fenwick_tree_value(fenwick_tree<S>& ft, int index){
 		return ft.sum(index, index + 1);
 	}
 	template<class S> using fenwick_tree_vectorizable = python_like_print::vectorizable_collection<S, python_like_print::gettable_collection<S, fenwick_tree<S>, get_fenwick_tree_value<S>>>;
@@ -199,7 +207,7 @@ namespace atcoder{
 #define lazy_segtree lazy_segtree_vectorizable
 #endif
 #ifdef ATCODER_SEGTREE_HPP
-	template <class S, S (*op)(S, S), S (*e)()> using segtree_vectorizable = python_like_print::vectorizable_collection<S, segtree<int, op, e>>;
+	template <class S, S (*op)(S, S), S (*e)()> using segtree_vectorizable = python_like_print::vectorizable_collection<S, segtree<S, op, e>>;
 #define segtree segtree_vectorizable
 #endif
 }
@@ -254,7 +262,7 @@ namespace python_like_print{
 // constexprはC++17以降でないと使えないので、それ未満のバージョンでコンパイルされた場合は定義を飛ばす。
 #if defined(__cplusplus) && __cplusplus >= 201703L
 	// 2個目以降の要素を", "を付けて出力
-	template<size_t N = 0, typename ...T> inline void print_items_in_tuple(ostream &out, const tuple<T...>& item){
+	template<size_t N, typename ...T> inline void print_items_in_tuple(ostream &out, const tuple<T...>& item){
 		if constexpr(N < tuple_size<tuple<T...>>::value){
 			out << ", ";
 			print_item(out, get<N>(item));
@@ -279,7 +287,7 @@ namespace python_like_print{
 	}
 	
 	// .begin()と.end()が付いているものは順に表示。中身がpairの場合はmapの類と見做して{}で、それ以外は[]で囲む
-	template<typename T, typename V = typename iterator_return_type<T>::type>
+	template<typename T, typename V>
 	inline void print_item(ostream& out, const T& iterable){
 		if constexpr(is_pair<V>::value){
 			out << '{';
@@ -295,13 +303,13 @@ namespace python_like_print{
 	}
 	
 	// その他、<< で出力できるもの(できないものはエラー)
-	template<typename T, typename S = decltype(cout << declval<T>()), typename R = enable_if_t<is_same_v<remove_reference_t<S>, basic_ostream<char>> && is_lvalue_reference_v<S>>>
+	template<typename T, typename S, typename R>
 	inline void print_item(ostream& out, const T& value){
 		out << value;
 	}
 	
 	// pytho_like_print(ostream& out); メソッドが生えているものを out << item; で出力できるように
-	template<typename T, typename X = decltype(declval<T>().python_like_print(cout))>inline ostream& operator<<(ostream& out, const T& value){
+	template<typename T, typename X>inline ostream& operator<<(ostream& out, const T& value){
 		value.python_like_print(out);
 		return out;
 	}
@@ -325,9 +333,17 @@ namespace python_like_print{
 			out << END;
 		}
 	}
+
+	// 文字や文字列がprint()の直接の引数の場合は、""や''を付けずに表示する
+	inline void print_value(ostream& out, const char* s){ out << s; }
+	inline void print_value(ostream& out, const string& s){ out << s; }
+	inline void print_value(ostream& out, char c){ out << c; }
+	// それ以外は、普通に出力
+	template<typename T> inline void print_value(ostream& out, const T& v){ print_item(out, v); }
+	
 	// 2つ以上の引数がある場合は1つ目を出力してSEPを出力後、残りを出力
 	template<char SEP, char END, typename T, typename ...A> inline void print_to_stream(ostream& out, const T& value, const A& ...args){
-		print_item(out, value);
+		print_value(out, value);
 		if constexpr(sizeof...(A) > 0){
 			if(SEP != '\0'){
 				out << SEP;
@@ -349,12 +365,12 @@ namespace python_like_print{
 		print_members(out, args...);
 	}
 	
-	template<size_t N, typename T> inline void print_members_with_names(ostream& out, vector<string> names, const T& arg){
+	template<size_t N, typename T> inline void print_members_with_names(ostream& out, const vector<string>& names, const T& arg){
 		out << names[N] << ": ";
 		print_item(out, arg);
 	}
 	
-	template<size_t N, typename F, typename ...T> inline void print_members_with_names(ostream& out, vector<string> names, const F& arg, T ...args){
+	template<size_t N, typename F, typename ...T> inline void print_members_with_names(ostream& out, const vector<string>& names, const F& arg, T ...args){
 		out << names[N] << ": ";
 		print_item(out, arg);
 		out << ", ";
