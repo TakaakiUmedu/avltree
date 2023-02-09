@@ -42,8 +42,8 @@ namespace avltree{
 		
 		template<typename T> inline std::enable_if_t<std::is_arithmetic_v<T>, T> one(){ return 1; }
 		template<typename T> inline std::enable_if_t<std::is_arithmetic_v<T>, T> zero(){ return 0; }
-		template<typename T> inline std::enable_if_t<std::is_arithmetic_v<T>, T> min_value(){ return std::numeric_limits<T>::min(); }
-		template<typename T> inline std::enable_if_t<std::is_arithmetic_v<T>, T> max_value(){ return std::numeric_limits<T>::max(); }
+		template<typename T> inline std::enable_if_t<std::numeric_limits<T>::is_specialized, T> min_value(){ return std::numeric_limits<T>::min(); }
+		template<typename T> inline std::enable_if_t<std::numeric_limits<T>::is_specialized, T> max_value(){ return std::numeric_limits<T>::max(); }
 
 		template<typename U, typename T> using tuple_append = decltype(std::tuple_cat(std::declval<U>(), std::make_tuple(std::declval<T>())));
 		template<typename U, size_t I> struct summarizer_tuple_converter{

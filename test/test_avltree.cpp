@@ -28,7 +28,7 @@ using namespace std;
 
 class checker{
 public:
-	template<typename K, typename V, avltree::tree_spec S = 0> static tuple<size_t, size_t, bool> check_node(const typename avltree::avltree_base::avltree<K, V, S>::node& n){
+	template<typename K, typename V, avltree::tree_spec S = avltree::tree_spec::simple> static tuple<size_t, size_t, bool> check_node(const typename avltree::avltree_base::avltree<K, V, S>::node& n){
 		bool failed = false;
 		auto [dl, cl, fl] = n.l ? check_node<K, V, S>(*n.l) : (tuple<size_t, size_t, bool>)make_tuple(0, 0, false);
 		auto [dr, cr, fr] = n.r ? check_node<K, V, S>(*n.r) : (tuple<size_t, size_t, bool>)make_tuple(0, 0, false);
