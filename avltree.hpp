@@ -432,9 +432,13 @@ namespace avltree{
 					}
 				}
 			public:
-				inline iterator_base(size_t stack_size, const node* root) : _stack(stack_size), _depth(0), node_view(root){
+				inline iterator_base(size_t stack_size, const node* root, const bool D = true) : _stack(stack_size), _depth(0), node_view(root){
 					if(cur()){
-						_down_to_leaf<true>();
+						if(D){
+							_down_to_leaf<true>();
+						}else{
+							_down_to_leaf<false>();
+						}
 					}
 				}
 				inline iterator_base(size_t stack_size, const node* root, branch_func branch) : _stack(stack_size), _depth(0), node_view(root){
@@ -891,7 +895,9 @@ namespace avltree{
 				inline const node_view find_lt(KR k) const{ return node_view(this->template _find_nearest<tree_base0::_branch_lt>(k)); }
 				
 				inline iterator begin() const{ return iterator(this->stack.size(), this->root.get()); }
+				inline iterator last() const{ return iterator(this->stack.size(), this->root.get(), false); }
 				inline reverse_iterator rbegin() const{ return reverse_iterator(this->stack.size(), this->root.get()); }
+				inline reverse_iterator rlast() const{ return reverse_iterator(this->stack.size(), this->root.get(), false); }
 				inline std::nullptr_t end() const{ return nullptr; }
 				inline std::nullptr_t rend() const{ return end(); }
 				
